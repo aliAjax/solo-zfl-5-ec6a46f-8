@@ -104,16 +104,24 @@ describe('resolveAnchor：同一句话出现多次时不跳走', () => {
     expect(resolveAnchor(edited, anchor)).toEqual({ start: 9, end: 11 })
   })
 
-  it('锚定的那一处被改写 → 待处理，不跳到另一处', () => {
+  it('锚定的那一处被改写，但原句他处仍在 → 锚到仅存的一句', () => {
     const anchor = buildAnchor(note, 0, 2)!
     const edited = '再见。世界。你好。'
-    expect(resolveAnchor(edited, anchor)).toBeNull()
+    // 笔记里还找得到 "你好"（下标 6），不失联
+    expect(resolveAnchor(edited, anchor)).toEqual({ start: 6, end: 8 })
   })
 
-  it('锚定的那一处被删掉 → 待处理，不跳到另一处', () => {
+  it('锚定的那一处被删掉，但原句他处仍在 → 锚到仅存的一句', () => {
     const anchor = buildAnchor(note, 6, 8)!
     const edited = '你好。世界。'
-    expect(resolveAnchor(edited, anchor)).toBeNull()
+    // 笔记里还找得到 "你好"（下标 0），不失联
+    expect(resolveAnchor(edited, anchor)).toEqual({ start: 0, end: 2 })
+  })
+
+  it('原句彻底消失才进待处理', () => {
+    const anchor = buildAnchor(note, 6, 8)!
+    expect(resolveAnchor('世界。今天。', anchor)).toBeNull()
+    expect(resolveAnchor('', anchor)).toBeNull()
   })
 
   it('删掉另一处时批注跟着原句走', () => {
@@ -152,6 +160,25 @@ describe('resolveAnchor：边界情况', () => {
     const note = '今天天气很好。树叶很绿。'
     const anchor = buildAnchor(note, 7, 11)!
     expect(resolveAnchor('昨天阴。树叶很绿呢。', anchor)).toEqual({ start: 4, end: 8 })
+  })
+
+  it('原句挪了位置 → 继续锚定不失联', () => {
+    const note = '今天天气很好。树叶很绿。'
+    const anchor = buildAnchor(note, 7, 11)!
+    // 整句被挪到笔记末尾
+    const edited = '今天天气很好。心情不错。树叶很绿。'
+    expect(resolveAnchor(edited, anchor)).toEqual({ start: 12, end: 16 })
+  })
+
+  it('前后文全被换掉且有重复句 → 仍锚定，不判失联', () => {
+    const note = '你好。世界。你好。'
+    const anchor = buildAnchor(note, 6, 8)!
+    // 前后文彻底换掉，但两处 "你好" 都还在
+    const edited = '早安。你好！晚安。你好？'
+    const resolved = resolveAnchor(edited, anchor)
+    expect(resolved).not.toBeNull()
+    // 笔记里 "你好" 仍有两处（下标 4 和 10），锚定到其中一处
+    expect(['你好', '你好']).toContain(edited.slice(resolved!.start, resolved!.end))
   })
 
   it('后来新增的重复句不会抢走批注', () => {

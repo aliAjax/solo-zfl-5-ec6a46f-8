@@ -194,13 +194,19 @@ export default function SceneDetailPage() {
     setActiveId(annotationId)
     const container = noteRef.current
     if (!container) return
-    const first = container.querySelector(`.anno-seg-${CSS.escape(annotationId)}`)
-    first?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     const segs = container.querySelectorAll(`.anno-seg-${CSS.escape(annotationId)}`)
-    segs.forEach((el) => el.classList.add('anno-flash'))
-    window.setTimeout(() => {
-      segs.forEach((el) => el.classList.remove('anno-flash'))
-    }, 1200)
+    segs[0]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // 用 WAAPI 做闪烁：React 重渲染会重写 className，
+    // 基于 class 的动画会被抹掉，而 el.animate 不受影响
+    segs.forEach((el) => {
+      el.animate?.(
+        [
+          { boxShadow: '0 0 0 0 rgba(232, 148, 90, 0.9)', backgroundColor: 'rgba(232, 148, 90, 0.85)' },
+          { boxShadow: '0 0 0 6px rgba(232, 148, 90, 0)', backgroundColor: 'rgba(232, 148, 90, 0.3)' },
+        ],
+        { duration: 600, easing: 'ease-out', iterations: 2 },
+      )
+    })
   }
 
   /** 点击正文高亮 → 激活并滚动到列表项 */

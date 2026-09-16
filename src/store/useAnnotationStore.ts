@@ -31,6 +31,24 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
   },
 
   addAnnotation: (input) => {
+    // 同一处（同记录、同原文、同出现次序）已存在批注时，
+    // 不新增条目，只更新标题与说明 —— 保证列表、计数与正文高亮一致
+    const dup = getAllAnnotations().find(
+      (a) =>
+        a.sceneId === input.sceneId &&
+        a.anchor.exact === input.anchor.exact &&
+        a.anchor.occurrence === input.anchor.occurrence,
+    )
+    if (dup) {
+      const updated: Annotation = {
+        ...dup,
+        title: input.title,
+        description: input.description,
+      }
+      storageUpdateAnnotation(updated)
+      set({ annotations: getAllAnnotations() })
+      return updated
+    }
     const annotation: Annotation = {
       id: crypto.randomUUID(),
       sceneId: input.sceneId,
@@ -45,9 +63,27 @@ export const useAnnotationStore = create<AnnotationState>((set) => ({
   },
 
   repointAnnotation: (id, anchor) => {
-    const existing = getAllAnnotations().find((a) => a.id === id)
+    const all = getAllAnnotations()
+    const existing = all.find((a) => a.id === id)
     if (!existing) return
-    storageUpdateAnnotation({ ...existing, anchor })
+    // 新锚点处已有批注：合并内容到已有那条，移除当前这条，避免重复
+    const dup = all.find(
+      (a) =>
+        a.id !== id &&
+        a.sceneId === existing.sceneId &&
+        a.anchor.exact === anchor.exact &&
+        a.anchor.occurrence === anchor.occurrence,
+    )
+    if (dup) {
+      storageUpdateAnnotation({
+        ...dup,
+        title: existing.title,
+        description: existing.description,
+      })
+      storageDeleteAnnotation(id)
+    } else {
+      storageUpdateAnnotation({ ...existing, anchor })
+    }
     set({ annotations: getAllAnnotations() })
   },
 

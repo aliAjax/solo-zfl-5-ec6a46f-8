@@ -2,12 +2,27 @@ import type { Annotation } from '@/types'
 
 const STORAGE_KEY = 'bus_window_annotations'
 
+/** 同一处（同记录、同原文、同出现次序）的重复批注只算一条：保留最早创建的 */
+function dedupeAnnotations(annotations: Annotation[]): Annotation[] {
+  const seen = new Set<string>()
+  const result: Annotation[] = []
+  for (const a of annotations) {
+    const key = `${a.sceneId} ${a.anchor.exact} ${a.anchor.occurrence}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(a)
+  }
+  return result
+}
+
 export function getAllAnnotations(): Annotation[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as Annotation[]) : []
+    if (!Array.isArray(parsed)) return []
+    // 读取时归一化，保证列表、计数与正文高亮条数一致
+    return dedupeAnnotations(parsed as Annotation[])
   } catch {
     return []
   }

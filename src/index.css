@@ -46,12 +46,3 @@ body {
 input, textarea, select {
   font-family: inherit;
 }
-
-@keyframes annoFlash {
-  0%, 100% { background-color: rgba(232, 148, 90, 0.25); }
-  50% { background-color: rgba(232, 148, 90, 0.85); }
-}
-
-.anno-flash {
-  animation: annoFlash 1.2s ease;
-}
