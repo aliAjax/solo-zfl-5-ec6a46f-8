@@ -4,6 +4,7 @@ import {
   getAllScenes,
   saveScene as storageSaveScene,
   deleteScene as storageDeleteScene,
+  updateSceneNote as storageUpdateSceneNote,
   getScenesByRoute,
   getAllRouteNames,
   getRandomScene,
@@ -19,6 +20,7 @@ interface SceneState {
   loadAll: () => void
   saveScene: (data: SceneFormData) => void
   deleteScene: (id: string) => void
+  updateSceneNote: (id: string, note: string) => void
   selectRoute: (routeName: string) => void
   refreshRandom: () => void
 }
@@ -54,6 +56,17 @@ export const useSceneStore = create<SceneState>((set) => ({
 
   deleteScene: (id: string) => {
     storageDeleteScene(id)
+    const scenes = getAllScenes()
+    const routeNames = getAllRouteNames()
+    set((state) => {
+      const currentRouteScenes =
+        state.selectedRoute ? getScenesByRoute(state.selectedRoute) : []
+      return { scenes, routeNames, currentRouteScenes }
+    })
+  },
+
+  updateSceneNote: (id: string, note: string) => {
+    storageUpdateSceneNote(id, note)
     const scenes = getAllScenes()
     const routeNames = getAllRouteNames()
     set((state) => {

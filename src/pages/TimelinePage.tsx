@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Search, Route, X, Trash2, Clock, MapPin } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, Route, MapPin, MessageSquareText } from 'lucide-react'
 import { useSceneStore } from '@/store/useSceneStore'
+import { useAnnotationStore } from '@/store/useAnnotationStore'
+import { countUniqueAnnotations } from '@/utils/anchors'
 import {
   formatTimestamp,
   getTimeOfDay,
@@ -8,30 +11,32 @@ import {
   getTreeIcon,
   getPedestrianIcon,
 } from '@/utils/sceneHelpers'
-import type { WindowScene } from '@/types'
 
 export default function TimelinePage() {
-  const { routeNames, selectedRoute, currentRouteScenes, selectRoute, loadAll, deleteScene } =
+  const { scenes, routeNames, selectedRoute, currentRouteScenes, selectRoute, loadAll } =
     useSceneStore()
+  const annotations = useAnnotationStore((s) => s.annotations)
+  const loadAnnotations = useAnnotationStore((s) => s.loadAnnotations)
   const [search, setSearch] = useState('')
-  const [detailScene, setDetailScene] = useState<WindowScene | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     loadAll()
-  }, [loadAll])
+    loadAnnotations()
+  }, [loadAll, loadAnnotations])
 
   const filteredRoutes = routeNames.filter((r) =>
     r.toLowerCase().includes(search.toLowerCase())
   )
 
-  const sorted = [...currentRouteScenes].sort(
+  // 未选路线（全部）时展示所有记录，选中路线时展示该路线记录
+  const baseScenes = selectedRoute ? currentRouteScenes : scenes
+  const sorted = [...baseScenes].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   )
 
-  const handleDelete = (id: string) => {
-    deleteScene(id)
-    setDetailScene(null)
-  }
+  const countFor = (sceneId: string) =>
+    countUniqueAnnotations(annotations.filter((a) => a.sceneId === sceneId))
 
   return (
     <div className="min-h-screen bg-teal-950 font-serif text-mist-100">
@@ -102,13 +107,21 @@ export default function TimelinePage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => setDetailScene(scene)}
+                    data-testid={`scene-card-${scene.id}`}
+                    onClick={() => navigate(`/scene/${scene.id}`)}
                     className="group flex-1 rounded-xl border border-teal-800 bg-teal-900/50 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-dusk-400/40 hover:shadow-lg hover:shadow-dusk-400/10"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       {getWeatherIcon(scene.weather)}
                       <span className="text-sm font-semibold text-mist-100">
                         {scene.segment}
+                      </span>
+                      <span
+                        data-testid={`annotation-count-${scene.id}`}
+                        className="ml-auto inline-flex items-center gap-1 rounded-full bg-dusk-400/10 border border-dusk-400/25 px-2 py-0.5 text-[10px] text-dusk-300"
+                      >
+                        <MessageSquareText className="w-3 h-3" />
+                        批注 {countFor(scene.id)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 mb-1.5 text-mist-400">
@@ -138,69 +151,6 @@ export default function TimelinePage() {
           </div>
         )}
       </div>
-
-      {detailScene && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setDetailScene(null)}
-        >
-          <div
-            className="relative mx-4 w-full max-w-md animate-scale-in rounded-2xl border border-teal-700 bg-teal-900 p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setDetailScene(null)}
-              className="absolute right-4 top-4 text-mist-400 hover:text-mist-100 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="mb-4 flex items-center gap-3">
-              {getWeatherIcon(detailScene.weather)}
-              <h2 className="text-xl font-bold text-dusk-400">{detailScene.segment}</h2>
-            </div>
-
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-2 text-mist-300">
-                <MapPin className="w-4 h-4 text-dusk-400" />
-                <span>{detailScene.routeName}</span>
-                <span className="text-teal-600">·</span>
-                <span>{detailScene.seatDirection}侧</span>
-              </div>
-              <div className="flex items-center gap-2 text-mist-300">
-                <Clock className="w-4 h-4 text-dusk-400" />
-                <span>{formatTimestamp(detailScene.timestamp)}</span>
-                <span className="text-teal-600">·</span>
-                <span>{getTimeOfDay(detailScene.timestamp)}</span>
-              </div>
-              <div className="flex items-center gap-3 text-mist-300">
-                {getTreeIcon(detailScene.treeDensity)}
-                <span>{detailScene.treeDensity}</span>
-                {getPedestrianIcon(detailScene.pedestrianStatus)}
-                <span>{detailScene.pedestrianStatus}</span>
-              </div>
-              {detailScene.signText && (
-                <div className="rounded-lg bg-teal-800/50 px-3 py-2 text-mist-200">
-                  招牌: {detailScene.signText}
-                </div>
-              )}
-              {detailScene.note && (
-                <div className="rounded-lg border border-teal-800 px-3 py-2 text-mist-300">
-                  {detailScene.note}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => handleDelete(detailScene.id)}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-red-900/40 py-2.5 text-sm text-red-300 transition-colors hover:bg-red-900/60"
-            >
-              <Trash2 className="w-4 h-4" />
-              删除此窗景
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
